@@ -3,21 +3,32 @@ package com.example.depthclock
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.Outline
 import android.graphics.Paint
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffXfermode
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.media.ExifInterface
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
+import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.widget.Button
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.SeekBar
+import android.widget.Switch
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,63 +40,142 @@ import java.io.FileOutputStream
 import kotlin.math.max
 import kotlin.math.min
 
+private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
+private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var status: TextView
     private val prefs by lazy { getSharedPreferences(PREFS, MODE_PRIVATE) }
-    private val colors = intArrayOf(
+
+    private val cBg = Color.parseColor("#0E1014")
+    private val cCard = Color.parseColor("#1A1D24")
+    private val cChip = Color.parseColor("#262A33")
+    private val cText = Color.parseColor("#F2F3F5")
+    private val cMuted = Color.parseColor("#9AA0AA")
+    private val cAccent = Color.parseColor("#7C6CFF")
+    private val palette = intArrayOf(
         Color.WHITE, Color.BLACK,
-        0xFFFFE066.toInt(), 0xFF7FDBFF.toInt(), 0xFFFF8FB1.toInt()
+        Color.parseColor("#FFE066"), Color.parseColor("#7FDBFF"),
+        Color.parseColor("#FF8FB1"), Color.parseColor("#9BFFB0"),
+        Color.parseColor("#FF6B4A")
     )
+    private val fontChips = ArrayList<TextView>()
+    private val swatches = ArrayList<View>()
 
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) process(uri)
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        val d = resources.displayMetrics.density
-        fun px(v: Int) = (v * d).toInt()
+    private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-            setPadding(px(12), px(12), px(12), px(12))
+    private fun box(color: Int, radiusDp: Int, strokeColor: Int = Color.TRANSPARENT, strokeDp: Int = 0) =
+        GradientDrawable().apply {
+            setColor(color)
+            cornerRadius = dp(radiusDp).toFloat()
+            if (strokeDp > 0) setStroke(dp(strokeDp), strokeColor)
         }
 
-        val preview = PreviewView(this)
-        root.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+    private fun lp(w: Int, h: Int, top: Int = 0) =
+        LinearLayout.LayoutParams(w, h).apply { topMargin = dp(top) }
 
-        status = TextView(this).apply {
-            text = "یک عکس انتخاب کنید (بهتر است عکس یک آدم باشد)."
-            setTextColor(Color.DKGRAY)
-            setPadding(0, px(8), 0, px(4))
-        }
-        root.addView(status)
-
-        root.addView(button("انتخاب عکس") { picker.launch("image/*") })
-        addSeek(root, "اندازه ساعت", KEY_SIZE, 50)
-        addSeek(root, "جای ساعت (بالا و پایین)", KEY_Y, 30)
-        root.addView(button("تغییر رنگ ساعت") {
-            val cur = prefs.getInt(KEY_COLOR, Color.WHITE)
-            val next = colors[(colors.indexOf(cur) + 1).mod(colors.size)]
-            prefs.edit().putInt(KEY_COLOR, next).apply()
-        })
-        root.addView(button("تنظیم به‌عنوان والپیپر") { setWallpaper() })
-
-        setContentView(root)
+    private fun label(t: String, sp: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
+        text = t
+        setTextColor(color)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, sp)
+        if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
-    private fun button(label: String, onClick: () -> Unit) = Button(this).apply {
-        text = label
+    private fun actionButton(t: String, primary: Boolean, onClick: () -> Unit) = Button(this).apply {
+        text = t
+        isAllCaps = false
+        setTextColor(Color.WHITE)
+        setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+        background = box(if (primary) cAccent else cChip, 16)
+        stateListAnimator = null
+        minimumHeight = dp(54)
         setOnClickListener { onClick() }
     }
 
-    private fun addSeek(root: LinearLayout, label: String, key: String, def: Int) {
-        root.addView(TextView(this).apply { text = label; setTextColor(Color.DKGRAY) })
-        root.addView(SeekBar(this).apply {
+    private fun refreshChips() {
+        val sel = prefs.getInt(KEY_FONT, 0)
+        fontChips.forEachIndexed { i, v ->
+            v.background = box(cChip, 12, if (i == sel) cAccent else Color.TRANSPARENT, 2)
+        }
+    }
+
+    private fun refreshSwatches() {
+        val sel = prefs.getInt(KEY_COLOR, Color.WHITE)
+        swatches.forEach { v ->
+            val c = v.tag as Int
+            v.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(c)
+                setStroke(dp(if (c == sel) 3 else 1), if (c == sel) cAccent else Color.parseColor("#454B57"))
+            }
+        }
+    }
+
+    private fun fontRow(): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+        }
+        for (i in 0 until FONT_COUNT) {
+            val chip = TextView(this).apply {
+                text = "12:34"
+                typeface = fontFor(i)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+                setTextColor(cText)
+                gravity = Gravity.CENTER
+                setPadding(dp(16), dp(10), dp(16), dp(10))
+                setOnClickListener {
+                    prefs.edit().putInt(KEY_FONT, i).apply()
+                    refreshChips()
+                }
+            }
+            fontChips.add(chip)
+            row.addView(chip, LinearLayout.LayoutParams(WRAP, WRAP).apply { marginEnd = dp(8) })
+        }
+        refreshChips()
+        return HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+            addView(row)
+        }
+    }
+
+    private fun colorRow(): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+        }
+        for (c in palette) {
+            val v = View(this)
+            v.tag = c
+            v.setOnClickListener {
+                prefs.edit().putInt(KEY_COLOR, c).apply()
+                refreshSwatches()
+            }
+            swatches.add(v)
+            row.addView(v, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(10) })
+        }
+        refreshSwatches()
+        return HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+            addView(row)
+        }
+    }
+
+    private fun slider(parent: LinearLayout, title: String, key: String, def: Int) {
+        parent.addView(label(title, 13f, cMuted), lp(WRAP, WRAP, 16))
+        val sb = SeekBar(this).apply {
             max = 100
             progress = prefs.getInt(key, def)
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+            progressTintList = ColorStateList.valueOf(cAccent)
+            thumbTintList = ColorStateList.valueOf(cAccent)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
                     prefs.edit().putInt(key, p).apply()
@@ -93,7 +183,73 @@ class MainActivity : ComponentActivity() {
                 override fun onStartTrackingTouch(s: SeekBar?) {}
                 override fun onStopTrackingTouch(s: SeekBar?) {}
             })
+        }
+        parent.addView(sb, lp(MATCH, WRAP, 4))
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        window.statusBarColor = cBg
+        window.navigationBarColor = cBg
+
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutDirection = View.LAYOUT_DIRECTION_RTL
+            setPadding(dp(18), dp(20), dp(18), dp(28))
+        }
+        col.addView(label("DepthClock", 26f, cText, true))
+        col.addView(label("ساعت پشت سوژه‌ی عکس شما", 14f, cMuted), lp(WRAP, WRAP, 2))
+
+        val dm = resources.displayMetrics
+        val pw = (dm.widthPixels * 0.62f).toInt()
+        val ph = (pw * dm.heightPixels.toFloat() / dm.widthPixels).toInt()
+        val preview = PreviewView(this).apply {
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, view.width, view.height, dp(22).toFloat())
+                }
+            }
+            clipToOutline = true
+        }
+        col.addView(preview, LinearLayout.LayoutParams(pw, ph).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            topMargin = dp(18)
         })
+
+        status = label("برای شروع یک عکس انتخاب کنید. عکس یک آدم بهتر جواب می‌دهد.", 13f, cMuted)
+        status.gravity = Gravity.CENTER
+        col.addView(status, lp(MATCH, WRAP, 12))
+
+        col.addView(actionButton("انتخاب عکس", false) { picker.launch("image/*") }, lp(MATCH, WRAP, 12))
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = box(cCard, 20)
+            setPadding(dp(16), dp(16), dp(16), dp(18))
+        }
+        card.addView(label("فونت ساعت", 13f, cMuted))
+        card.addView(fontRow(), lp(MATCH, WRAP, 8))
+        card.addView(label("رنگ ساعت", 13f, cMuted), lp(WRAP, WRAP, 16))
+        card.addView(colorRow(), lp(MATCH, WRAP, 8))
+        slider(card, "اندازه ساعت", KEY_SIZE, 50)
+        slider(card, "جای ساعت (بالا و پایین)", KEY_Y, 30)
+
+        val sw = Switch(this).apply {
+            text = "حرکت سه‌بعدی با کج کردن گوشی"
+            setTextColor(cText)
+            isChecked = prefs.getBoolean(KEY_MOTION, false)
+            setOnCheckedChangeListener { _, on -> prefs.edit().putBoolean(KEY_MOTION, on).apply() }
+        }
+        card.addView(sw, lp(MATCH, WRAP, 18))
+        col.addView(card, lp(MATCH, WRAP, 16))
+
+        col.addView(actionButton("تنظیم به‌عنوان والپیپر", true) { setWallpaper() }, lp(MATCH, WRAP, 16))
+
+        val scroll = ScrollView(this).apply {
+            setBackgroundColor(cBg)
+            addView(col)
+        }
+        setContentView(scroll)
     }
 
     private fun setWallpaper() {
