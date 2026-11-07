@@ -17,7 +17,12 @@ class DepthWallpaperService : WallpaperService() {
     inner class DepthEngine : Engine(), SensorEventListener {
         private val handler = Handler(Looper.getMainLooper())
         private var renderer: DepthRenderer? = null
+        private val prefs by lazy {
+            applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        }
         private var shown = false
+        private var motionOn = false
+        private var sensorOn = false
         private var tx = 0f
         private var ty = 0f
         private var cx = 0f
@@ -25,8 +30,26 @@ class DepthWallpaperService : WallpaperService() {
 
         private val frame = object : Runnable {
             override fun run() {
+                syncMotion()
                 drawFrame()
-                if (shown) handler.postDelayed(this, 33)
+                if (shown) handler.postDelayed(this, if (motionOn) 33L else 1000L)
+            }
+        }
+
+        private fun syncMotion() {
+            val want = shown && prefs.getBoolean(KEY_MOTION, false)
+            motionOn = want
+            val sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            if (want && !sensorOn) {
+                sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+                    sensorOn = true
+                }
+            } else if (!want && sensorOn) {
+                sm.unregisterListener(this)
+                sensorOn = false
+                tx = 0f
+                ty = 0f
             }
         }
 
@@ -37,16 +60,11 @@ class DepthWallpaperService : WallpaperService() {
 
         override fun onVisibilityChanged(visible: Boolean) {
             shown = visible
-            val sm = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            handler.removeCallbacks(frame)
             if (visible) {
-                sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)?.let {
-                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
-                }
-                handler.removeCallbacks(frame)
                 handler.post(frame)
             } else {
-                sm.unregisterListener(this)
-                handler.removeCallbacks(frame)
+                syncMotion()
             }
         }
 
@@ -58,7 +76,7 @@ class DepthWallpaperService : WallpaperService() {
         override fun onDestroy() {
             shown = false
             handler.removeCallbacks(frame)
-            (getSystemService(Context.SENSOR_SERVICE) as SensorManager).unregisterListener(this)
+            syncMotion()
             super.onDestroy()
         }
 
@@ -71,8 +89,13 @@ class DepthWallpaperService : WallpaperService() {
 
         private fun drawFrame() {
             val r = renderer ?: return
-            cx += (tx - cx) * 0.15f
-            cy += (ty - cy) * 0.15f
+            if (motionOn) {
+                cx += (tx - cx) * 0.15f
+                cy += (ty - cy) * 0.15f
+            } else {
+                cx = 0f
+                cy = 0f
+            }
             val holder = surfaceHolder
             val canvas = try {
                 holder.lockCanvas()
