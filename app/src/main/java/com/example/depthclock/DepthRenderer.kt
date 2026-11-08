@@ -342,7 +342,7 @@ class DepthRenderer(private val ctx: Context) {
 
     /** Returns [top, bottomBaseline, centerX] so the date can sit next to the clock. */
     private fun drawClock(c: Canvas, w: Int, h: Int, cfg: Cfg, sx: Float, sy: Float): FloatArray {
-        val ts = w * (0.16f + cfg.i("clk_size") / 100f * 0.6f)
+        val ts = w * (0.16f + cfg.i("clk_size") / 100f * 0.6f) * (if (cfg.i("clk_layout") == 1) 0.5f else 1f)
         setup(cfg.i("clk_font"), ts, cfg.i("clk_ls") / 100f * 0.3f, cfg.i("clk_str") / 100f)
 
         val now = Date()
