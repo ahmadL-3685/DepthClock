@@ -12,8 +12,10 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Matrix
 import android.graphics.Paint
+import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
+import android.os.Build
 import android.text.format.DateFormat
 import android.view.View
 import java.io.File
@@ -22,15 +24,16 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.cos
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 
 const val PREFS = "depth"
 const val KEY_MOTION = "motion"
 const val BG_FILE = "bg.jpg"
 const val FG_FILE = "fg.png"
-const val FONT_COUNT = 8
+const val FONT_COUNT = 11
 
-val FONT_NAMES = listOf("Medium", "Light", "Condensed", "Serif", "Mono", "Black", "Casual", "Script")
+val FONT_NAMES = listOf("Medium", "Light", "Condensed", "Serif", "Mono", "Black", "Casual", "Script", "Thin", "Regular", "Narrow")
 val DATE_FMTS = arrayOf("EEEE d MMMM", "EEE d MMM", "yyyy/MM/dd", "d MMMM")
 
 /** Default value of every setting. Anything not stored in prefs falls back to this. */
@@ -39,6 +42,22 @@ val DEFAULTS: Map<String, Any> = mapOf<String, Any>(
     "clk_on" to true,
     "clk_hf" to 0,
     "clk_layout" to 0,
+    "clk_sep" to 0,
+    "clk_style" to 1,
+    "clk_wt" to 0,
+    "clk_it" to false,
+    "clk_pg" to 25,
+    "clk_sk" to 50,
+    "clk_vs" to 100,
+    "clk_gl" to false,
+    "clk_glo" to 40,
+    "clk_glc" to 52,
+    "clk_glh" to 45,
+    "clk_glv" to 30,
+    "clk_glt" to 0xFFB8C4D0.toInt(),
+    "clk_gb" to true,
+    "clk_gbw" to 15,
+    "clk_gbc" to Color.WHITE,
     "clk_font" to 0,
     "clk_size" to 55,
     "clk_ls" to 10,
@@ -64,6 +83,7 @@ val DEFAULTS: Map<String, Any> = mapOf<String, Any>(
     "dt_c" to Color.WHITE,
     "dt_pos" to 0,
     "dt_gap" to 50,
+    "dt_dx" to 50,
     // free text
     "tx_on" to false,
     "tx_text" to "",
@@ -143,23 +163,43 @@ val TEMPLATES: List<Template> = listOf(
         "clk_layout" to 1, "clk_rot" to 40, "clk_ow" to 10, "clk_oc" to Color.BLACK, "clk_y" to 30),
     tpl("Minimal",
         "clk_font" to 1, "clk_size" to 40, "clk_c1" to Color.WHITE, "clk_c2" to Color.WHITE,
-        "clk_layout" to 1, "clk_y" to 8, "dt_pos" to 1, "dt_gap" to 30)
+        "clk_layout" to 1, "clk_y" to 8, "dt_pos" to 1, "dt_gap" to 30),
+    tpl("Poster",
+        "clk_font" to 10, "clk_layout" to 1, "clk_sep" to 2, "clk_size" to 100, "clk_c1" to Color.WHITE,
+        "clk_c2" to 0xFF5A66C8.toInt(), "clk_str" to 70, "clk_pg" to 10, "clk_y" to 14,
+        "dt_font" to 4, "dt_up" to true),
+    tpl("Glass",
+        "clk_font" to 9, "clk_layout" to 1, "clk_size" to 80, "clk_style" to 0, "clk_c1" to Color.WHITE,
+        "clk_gl" to true, "clk_glo" to 35, "clk_y" to 30, "dt_font" to 9)
 )
 
-private val FONTS: Array<Typeface> by lazy {
-    arrayOf(
-        Typeface.create("sans-serif-medium", Typeface.BOLD),
-        Typeface.create("sans-serif-light", Typeface.NORMAL),
-        Typeface.create("sans-serif-condensed", Typeface.BOLD),
-        Typeface.create(Typeface.SERIF, Typeface.BOLD),
-        Typeface.create(Typeface.MONOSPACE, Typeface.BOLD),
-        Typeface.create("sans-serif-black", Typeface.NORMAL),
-        Typeface.create("casual", Typeface.NORMAL),
-        Typeface.create("cursive", Typeface.NORMAL)
-    )
-}
+private val FONT_FAMS = arrayOf(
+    "sans-serif-medium", "sans-serif-light", "sans-serif-condensed", "serif", "monospace",
+    "sans-serif-black", "casual", "cursive", "sans-serif-thin", "sans-serif", "sans-serif-condensed"
+)
+private val FONT_BOLD = booleanArrayOf(true, false, true, true, true, false, false, false, false, false, false)
+private val tfCache = HashMap<Int, Typeface>()
 
-fun fontFor(i: Int): Typeface = FONTS[i.coerceIn(0, FONTS.size - 1)]
+/** wt: 0 = font as designed, 1 = semi-bold, 2 = bold. */
+fun fontFor(i: Int, wt: Int = 0, italic: Boolean = false): Typeface {
+    val k = i.coerceIn(0, FONT_FAMS.size - 1)
+    val key = k * 100 + wt * 10 + (if (italic) 1 else 0)
+    val cached = tfCache[key]
+    if (cached != null) return cached
+    val fam = FONT_FAMS[k]
+    var style = if (FONT_BOLD[k]) Typeface.BOLD else Typeface.NORMAL
+    if (italic) style = style or Typeface.ITALIC
+    val base = Typeface.create(fam, style)
+    val tf = if (wt == 0) {
+        base
+    } else if (Build.VERSION.SDK_INT >= 28) {
+        Typeface.create(base, if (wt == 1) 600 else 800, italic)
+    } else {
+        Typeface.create(fam, Typeface.BOLD or (if (italic) Typeface.ITALIC else 0))
+    }
+    tfCache[key] = tf
+    return tf
+}
 
 fun hueMatrix(deg: Float): ColorMatrix {
     val r = Math.toRadians(deg.toDouble())
@@ -299,22 +339,28 @@ class DepthRenderer(private val ctx: Context) {
         c.drawBitmap(bmp, matrix, bitmapPaint)
     }
 
-    private fun setup(font: Int, size: Float, spacing: Float, stretch: Float) {
-        tp.typeface = fontFor(font)
+    private val platePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val density = ctx.resources.displayMetrics.density
+
+    private fun setup(font: Int, wt: Int, italic: Boolean, size: Float, spacing: Float, stretch: Float, skew: Float) {
+        tp.typeface = fontFor(font, wt, italic)
         tp.textSize = size
         tp.letterSpacing = spacing
         tp.textScaleX = stretch
+        tp.textSkewX = -skew
         tp.textAlign = Paint.Align.LEFT
         tp.style = Paint.Style.FILL
+        tp.shader = null
         tp.clearShadowLayer()
     }
 
     private fun put(
         c: Canvas, t: String, x: Float, y: Float, color: Int,
-        op: Int, ow: Int, oc: Int, sh: Boolean, shs: Int
+        op: Int, ow: Int, oc: Int, sh: Boolean, shs: Int, shader: Shader? = null
     ) {
         val a = (op * 255 / 100).coerceIn(0, 255)
         if (ow > 0) {
+            tp.shader = null
             tp.style = Paint.Style.STROKE
             tp.strokeJoin = Paint.Join.ROUND
             tp.strokeWidth = tp.textSize * ow / 100f * 0.12f
@@ -326,6 +372,7 @@ class DepthRenderer(private val ctx: Context) {
         tp.style = Paint.Style.FILL
         tp.color = color
         tp.alpha = a
+        tp.shader = shader
         if (sh) {
             val sa = (160 * a / 255).coerceIn(0, 255)
             tp.setShadowLayer(
@@ -337,13 +384,37 @@ class DepthRenderer(private val ctx: Context) {
             tp.clearShadowLayer()
         }
         c.drawText(t, x, y, tp)
+        tp.shader = null
         tp.clearShadowLayer()
+    }
+
+    private fun drawPlate(c: Canvas, cfg: Cfg, cx: Float, tw: Float, firstBase: Float, lastBase: Float, ts: Float) {
+        val ph = ts * cfg.i("clk_glh") / 100f
+        val pv = ts * cfg.i("clk_glv") / 100f
+        val r = RectF(cx - tw / 2f - ph, firstBase - ts * 0.76f - pv, cx + tw / 2f + ph, lastBase + ts * 0.18f + pv)
+        val rad = min(r.width(), r.height()) / 2f * cfg.i("clk_glc") / 100f
+        platePaint.style = Paint.Style.FILL
+        platePaint.color = cfg.i("clk_glt")
+        platePaint.alpha = (cfg.i("clk_glo") * 255 / 100).coerceIn(0, 255)
+        c.drawRoundRect(r, rad, rad, platePaint)
+        if (cfg.b("clk_gb")) {
+            platePaint.style = Paint.Style.STROKE
+            platePaint.strokeWidth = max(1f, cfg.i("clk_gbw") / 10f * density)
+            platePaint.color = cfg.i("clk_gbc")
+            platePaint.alpha = 190
+            c.drawRoundRect(r, rad, rad, platePaint)
+        }
     }
 
     /** Returns [top, bottomBaseline, centerX] so the date can sit next to the clock. */
     private fun drawClock(c: Canvas, w: Int, h: Int, cfg: Cfg, sx: Float, sy: Float): FloatArray {
-        val ts = w * (0.16f + cfg.i("clk_size") / 100f * 0.6f) * (if (cfg.i("clk_layout") == 1) 0.5f else 1f)
-        setup(cfg.i("clk_font"), ts, cfg.i("clk_ls") / 100f * 0.3f, cfg.i("clk_str") / 100f)
+        val layout = cfg.i("clk_layout")
+        var ts = w * (0.16f + cfg.i("clk_size") / 100f * 0.6f)
+        if (layout != 0) ts *= 0.62f
+        setup(
+            cfg.i("clk_font"), cfg.i("clk_wt"), cfg.b("clk_it"), ts,
+            cfg.i("clk_ls") / 100f * 0.3f, cfg.i("clk_str") / 100f, (cfg.i("clk_sk") - 50) / 50f * 0.5f
+        )
 
         val now = Date()
         val use24 = when (cfg.i("clk_hf")) {
@@ -353,55 +424,90 @@ class DepthRenderer(private val ctx: Context) {
         }
         val hh = (if (use24) hf24 else hf12).format(now)
         val mm = minFmt.format(now)
+        val sep = if (layout == 1) {
+            when (cfg.i("clk_sep")) {
+                1 -> "."
+                2 -> ""
+                else -> ":"
+            }
+        } else ""
+
+        val wh = tp.measureText(hh)
+        val wm = tp.measureText(mm)
+        val ws = if (sep.isEmpty()) 0f else tp.measureText(sep)
+        val gap = ts * cfg.i("clk_pg") / 100f * 0.6f
+        val totalW = when (layout) {
+            0 -> max(wh, wm)
+            2 -> wh + gap * 3f + wm
+            else -> if (sep.isEmpty()) wh + gap + wm else wh + ws + gap * 2f + wm
+        }
 
         val cx = w * cfg.i("clk_x") / 100f + sx
         val top = h * (0.04f + cfg.i("clk_y") / 100f * 0.8f) + sy
-        val gap = ts * (0.55f + cfg.i("clk_lh") / 100f * 0.8f)
+        val lineGap = ts * (0.55f + cfg.i("clk_lh") / 100f * 0.8f)
         val rot = (cfg.i("clk_rot") - 45).toFloat()
+        val vs = cfg.i("clk_vs") / 100f
+        val style = cfg.i("clk_style")
         val c1 = cfg.i("clk_c1")
-        val c2 = cfg.i("clk_c2")
+        val c2raw = cfg.i("clk_c2")
+        val c2 = if (style == 0) c1 else c2raw
         val op = cfg.i("clk_op")
         val ow = cfg.i("clk_ow")
         val oc = cfg.i("clk_oc")
         val sh = cfg.b("clk_sh")
         val shs = cfg.i("clk_shs")
         val base1 = top + ts * 0.78f
-        val bottom: Float
+        val base2 = if (layout == 0) base1 + lineGap else base1
+        val gx0 = cx - totalW / 2f
+        val gx1 = cx + totalW / 2f
+        val midY = (base1 + base2) / 2f - ts * 0.3f
+
+        fun shaderAt(base: Float): Shader? = when (style) {
+            2 -> LinearGradient(0f, base - ts * 0.75f, 0f, base, c1, c2raw, Shader.TileMode.CLAMP)
+            3 -> LinearGradient(gx0, 0f, gx1, 0f, c1, c2raw, Shader.TileMode.CLAMP)
+            else -> null
+        }
+
+        fun part(t: String, x: Float, y: Float, col: Int) {
+            put(c, t, x, y, col, op, ow, oc, sh, shs, shaderAt(y))
+        }
 
         c.save()
-        if (cfg.i("clk_layout") == 1) {
-            val wh = tp.measureText(hh)
-            val wc = tp.measureText(":")
-            val wm = tp.measureText(mm)
-            val total = wh + wc + wm
-            c.rotate(rot, cx, base1 - ts * 0.3f)
-            var x = cx - total / 2f
-            put(c, hh, x, base1, c1, op, ow, oc, sh, shs)
-            x += wh
-            put(c, ":", x, base1, c1, op, ow, oc, sh, shs)
-            x += wc
-            put(c, mm, x, base1, c2, op, ow, oc, sh, shs)
-            bottom = base1
+        c.rotate(rot, cx, midY)
+        if (vs != 1f) c.scale(1f, vs, cx, midY)
+        if (cfg.b("clk_gl")) drawPlate(c, cfg, cx, totalW, base1, base2, ts)
+
+        if (layout == 0) {
+            part(hh, cx - wh / 2f, base1, c1)
+            part(mm, cx - wm / 2f, base2, c2)
         } else {
-            val base2 = base1 + gap
-            c.rotate(rot, cx, (base1 + base2) / 2f - ts * 0.3f)
-            put(c, hh, cx - tp.measureText(hh) / 2f, base1, c1, op, ow, oc, sh, shs)
-            put(c, mm, cx - tp.measureText(mm) / 2f, base2, c2, op, ow, oc, sh, shs)
-            bottom = base2
+            var x = gx0
+            part(hh, x, base1, c1)
+            x += wh
+            if (layout == 2) {
+                x += gap * 3f
+            } else if (sep.isNotEmpty()) {
+                x += gap
+                part(sep, x, base1, c1)
+                x += ws + gap
+            } else {
+                x += gap
+            }
+            part(mm, x, base1, c2)
         }
         c.restore()
-        return floatArrayOf(top, bottom, cx)
+        return floatArrayOf(top, base2, cx)
     }
 
     private fun drawDate(c: Canvas, w: Int, cfg: Cfg, clock: FloatArray) {
         val ds = w * (0.03f + cfg.i("dt_size") / 100f * 0.12f)
-        setup(cfg.i("dt_font"), ds, cfg.i("dt_ls") / 100f * 0.5f, 1f)
+        setup(cfg.i("dt_font"), 0, false, ds, cfg.i("dt_ls") / 100f * 0.5f, 1f, 0f)
         var t = SimpleDateFormat(DATE_FMTS[cfg.i("dt_fmt").coerceIn(0, DATE_FMTS.size - 1)], Locale.getDefault())
             .format(Date())
         if (cfg.b("dt_up")) t = t.uppercase()
         val g = ds * (0.5f + cfg.i("dt_gap") / 100f * 1.5f)
         val y = if (cfg.i("dt_pos") == 0) clock[1] + g + ds * 0.8f else clock[0] - g
-        val x = clock[2] - tp.measureText(t) / 2f
+        val x = clock[2] - tp.measureText(t) / 2f + (cfg.i("dt_dx") - 50) / 50f * w * 0.3f
         put(c, t, x, y, cfg.i("dt_c"), cfg.i("clk_op"), 0, 0, cfg.b("clk_sh"), cfg.i("clk_shs"))
     }
 
@@ -409,7 +515,7 @@ class DepthRenderer(private val ctx: Context) {
         val t = cfg.s("tx_text")
         if (t.isBlank()) return
         val size = w * (0.03f + cfg.i("tx_size") / 100f * 0.2f)
-        setup(cfg.i("tx_font"), size, 0f, 1f)
+        setup(cfg.i("tx_font"), 0, false, size, 0f, 1f, 0f)
         val x = w * cfg.i("tx_x") / 100f - tp.measureText(t) / 2f
         val y = h * cfg.i("tx_y") / 100f
         put(c, t, x, y, cfg.i("tx_c"), cfg.i("tx_op"), 0, 0, false, 0)
