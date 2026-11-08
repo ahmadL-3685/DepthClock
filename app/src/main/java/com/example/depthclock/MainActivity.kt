@@ -96,7 +96,27 @@ internal val THEMES: List<AppTheme> = listOf(
     AppTheme("روشن", true,
         0xFFF4F6FB.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFF1F3FA.toInt(), 0xFFE3E7F2.toInt(),
         0xFFD6DEFF.toInt(), 0xFF1A1F36.toInt(), 0xFF6B7390.toInt(), 0xFF3D4FD6.toInt(), 0xFFFFFFFF.toInt(),
-        0xFFD6DEFF.toInt(), 0xFFEADFFF.toInt())
+        0xFFD6DEFF.toInt(), 0xFFEADFFF.toInt()),
+    AppTheme("کاغذی", true,
+        0xFFF7F1E6.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFF3ECDD.toInt(), 0xFFEADFC9.toInt(),
+        0xFFF1DDB8.toInt(), 0xFF2B2418.toInt(), 0xFF8A7F6B.toInt(), 0xFFB5651D.toInt(), 0xFFFFFFFF.toInt(),
+        0xFFF1DDB8.toInt(), 0xFFFAEBD0.toInt()),
+    AppTheme("نعنایی", true,
+        0xFFEEF8F3.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFE4F3EC.toInt(), 0xFFD3EBDF.toInt(),
+        0xFFBFE8D3.toInt(), 0xFF10281F.toInt(), 0xFF5E8072.toInt(), 0xFF1F8A62.toInt(), 0xFFFFFFFF.toInt(),
+        0xFFBFE8D3.toInt(), 0xFFDDF3E8.toInt()),
+    AppTheme("صورتی", true,
+        0xFFFFF1F5.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFCE6EE.toInt(), 0xFFF7D6E2.toInt(),
+        0xFFFAC8DA.toInt(), 0xFF3A1423.toInt(), 0xFF9A6B7C.toInt(), 0xFFD6336C.toInt(), 0xFFFFFFFF.toInt(),
+        0xFFFAC8DA.toInt(), 0xFFFFE3EC.toInt()),
+    AppTheme("لاوندر", true,
+        0xFFF4F1FF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFEBE6FF.toInt(), 0xFFDDD5FA.toInt(),
+        0xFFD0C6F8.toInt(), 0xFF1D1740.toInt(), 0xFF7A74A3.toInt(), 0xFF6C4FE0.toInt(), 0xFFFFFFFF.toInt(),
+        0xFFD0C6F8.toInt(), 0xFFE9E3FF.toInt()),
+    AppTheme("آسمانی", true,
+        0xFFEEF6FC.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFE3F0FA.toInt(), 0xFFD0E6F6.toInt(),
+        0xFFBBDDF3.toInt(), 0xFF0E2433.toInt(), 0xFF5F7F94.toInt(), 0xFF0F7FBF.toInt(), 0xFFFFFFFF.toInt(),
+        0xFFBBDDF3.toInt(), 0xFFDCEEFA.toInt())
 )
 
 // ---------------------------------------------------------------- editor model
@@ -109,6 +129,19 @@ internal class Fnt(label: String, val key: String) : Ctl(label)
 internal class Clr(label: String, val key: String) : Ctl(label)
 internal class Txt(label: String, val key: String) : Ctl(label)
 internal class Btn(label: String, val id: Int) : Ctl(label)
+internal class Prs(label: String, val k1: String, val k2: String) : Ctl(label)
+internal class Grd(label: String, val kx: String, val ky: String, val xs: IntArray, val ys: IntArray) : Ctl(label)
+
+internal val PAIRS = listOf(
+    Triple("Rose", 0xFFF5EFE6.toInt(), 0xFFFF5C8A.toInt()),
+    Triple("Sunset", 0xFFFFD166.toInt(), 0xFFFF5A36.toInt()),
+    Triple("Ocean", 0xFF5ED3F3.toInt(), 0xFF2563EB.toInt()),
+    Triple("Mint", 0xFFA7F3A0.toInt(), 0xFF10B981.toInt()),
+    Triple("Violet", 0xFFD9C8FF.toInt(), 0xFF8B5CF6.toInt()),
+    Triple("Cyan", 0xFF67E8F9.toInt(), 0xFF3B82F6.toInt()),
+    Triple("Gold", 0xFFFFF3B0.toInt(), 0xFFE0A100.toInt()),
+    Triple("Mono", 0xFFFFFFFF.toInt(), 0xFF6B7280.toInt())
+)
 
 internal class Sub(val name: String, val ctls: List<Ctl>)
 internal class EdModule(val name: String, val icon: Int, val subs: List<Sub>)
@@ -117,33 +150,51 @@ internal val MODULES: List<EdModule> = listOf(
     EdModule("ساعت", 3, listOf(
         Sub("قالب‌بندی", listOf(
             Tgl("نمایش ساعت", "clk_on"),
-            Chp("فرمت ساعت", "clk_hf", listOf("سیستم", "۲۴ ساعته", "۱۲ ساعته")),
-            Chp("چیدمان", "clk_layout", listOf("دو خطی", "یک خطی"))
+            Chp("چیدمان", "clk_layout", listOf("دو خطی", "یک خطی", "جدا از هم")),
+            Chp("جداکننده (یک خطی)", "clk_sep", listOf("دونقطه ( : )", "نقطه ( . )", "بدون")),
+            Chp("فرمت ساعت", "clk_hf", listOf("سیستم", "۲۴ ساعته", "۱۲ ساعته"))
         )),
         Sub("تایپوگرافی", listOf(
             Fnt("فونت", "clk_font"),
-            Sld("اندازه", "clk_size", 10, 100),
-            Sld("فاصله حروف", "clk_ls", 0, 100),
-            Sld("فاصله خطوط", "clk_lh", 0, 100)
+            Chp("ضخامت", "clk_wt", listOf("پیش‌فرض", "نیمه‌ضخیم", "ضخیم")),
+            Tgl("کج (ایتالیک)", "clk_it"),
+            Sld("اندازه", "clk_size", 10, 100, 0, "%"),
+            Sld("فاصله حروف", "clk_ls", 0, 100, 0, "%"),
+            Sld("فاصله خطوط", "clk_lh", 0, 100, 0, "%"),
+            Sld("فاصله ساعت و دقیقه", "clk_pg", 0, 100, 0, "%")
         )),
-        Sub("رنگ‌ها", listOf(
-            Clr("رنگ ساعت", "clk_c1"),
-            Clr("رنگ دقیقه", "clk_c2"),
+        Sub("استایل", listOf(
+            Chp("نوع رنگ‌آمیزی", "clk_style", listOf("یکدست", "دو رنگ", "گرادیان عمودی", "گرادیان افقی")),
+            Prs("رنگ‌های آماده", "clk_c1", "clk_c2"),
+            Clr("رنگ اول (ساعت)", "clk_c1"),
+            Clr("رنگ دوم (دقیقه)", "clk_c2"),
             Sld("شفافیت", "clk_op", 10, 100, 0, "%")
         )),
         Sub("موقعیت", listOf(
-            Sld("افقی", "clk_x", 0, 100),
-            Sld("عمودی", "clk_y", 0, 100)
+            Grd("جای ساعت", "clk_x", "clk_y", intArrayOf(28, 50, 72), intArrayOf(8, 32, 58)),
+            Sld("افقی", "clk_x", 0, 100, 0, "%"),
+            Sld("عمودی", "clk_y", 0, 100, 0, "%")
         )),
         Sub("افکت‌ها", listOf(
             Tgl("سایه", "clk_sh"),
-            Sld("شدت سایه", "clk_shs", 0, 100),
-            Sld("ضخامت حاشیه", "clk_ow", 0, 100),
-            Clr("رنگ حاشیه", "clk_oc")
+            Sld("شدت سایه", "clk_shs", 0, 100, 0, "%"),
+            Sld("ضخامت حاشیه حروف", "clk_ow", 0, 100, 0, "%"),
+            Clr("رنگ حاشیه حروف", "clk_oc"),
+            Tgl("پلاک شیشه‌ای پشت ساعت", "clk_gl"),
+            Sld("شفافیت پلاک", "clk_glo", 0, 100, 0, "%"),
+            Sld("گردی گوشه‌ها", "clk_glc", 0, 100, 0, "%"),
+            Sld("فاصله افقی از متن", "clk_glh", 0, 100, 0, "%"),
+            Sld("فاصله عمودی از متن", "clk_glv", 0, 100, 0, "%"),
+            Clr("رنگ پلاک", "clk_glt"),
+            Tgl("لبه پلاک", "clk_gb"),
+            Sld("ضخامت لبه", "clk_gbw", 1, 50, 0, ""),
+            Clr("رنگ لبه", "clk_gbc")
         )),
         Sub("تبدیل", listOf(
             Sld("چرخش", "clk_rot", 0, 90, 45, "°"),
-            Sld("کشیدگی", "clk_str", 50, 150, 0, "%")
+            Sld("کشیدگی افقی", "clk_str", 50, 150, 0, "%"),
+            Sld("کشیدگی عمودی", "clk_vs", 50, 150, 0, "%"),
+            Sld("کج کردن", "clk_sk", 0, 100, 50, "")
         ))
     )),
     EdModule("تاریخ", 4, listOf(
@@ -155,35 +206,41 @@ internal val MODULES: List<EdModule> = listOf(
         )),
         Sub("تایپوگرافی", listOf(
             Fnt("فونت", "dt_font"),
-            Sld("اندازه", "dt_size", 10, 100),
-            Sld("فاصله حروف", "dt_ls", 0, 100),
-            Sld("فاصله از ساعت", "dt_gap", 0, 100)
+            Sld("اندازه", "dt_size", 10, 100, 0, "%"),
+            Sld("فاصله حروف", "dt_ls", 0, 100, 0, "%")
         )),
-        Sub("رنگ‌ها", listOf(
+        Sub("استایل", listOf(
             Clr("رنگ تاریخ", "dt_c")
+        )),
+        Sub("موقعیت", listOf(
+            Sld("فاصله از ساعت", "dt_gap", 0, 100, 0, "%"),
+            Sld("جابه‌جایی افقی", "dt_dx", 0, 100, 50, "")
         ))
     )),
     EdModule("متن", 5, listOf(
-        Sub("محتوا", listOf(
+        Sub("قالب‌بندی", listOf(
             Tgl("نمایش متن", "tx_on"),
-            Txt("متن دلخواه", "tx_text"),
-            Fnt("فونت", "tx_font")
+            Txt("متن دلخواه", "tx_text")
         )),
-        Sub("ظاهر", listOf(
-            Sld("اندازه", "tx_size", 10, 100),
+        Sub("تایپوگرافی", listOf(
+            Fnt("فونت", "tx_font"),
+            Sld("اندازه", "tx_size", 10, 100, 0, "%")
+        )),
+        Sub("استایل", listOf(
             Clr("رنگ", "tx_c"),
             Sld("شفافیت", "tx_op", 10, 100, 0, "%")
         )),
         Sub("موقعیت", listOf(
-            Sld("افقی", "tx_x", 0, 100),
-            Sld("عمودی", "tx_y", 0, 100)
+            Grd("جای متن", "tx_x", "tx_y", intArrayOf(28, 50, 72), intArrayOf(15, 50, 85)),
+            Sld("افقی", "tx_x", 0, 100, 0, "%"),
+            Sld("عمودی", "tx_y", 0, 100, 0, "%")
         ))
     )),
     EdModule("عکس", 6, listOf(
-        Sub("انتخاب", listOf(
+        Sub("قالب‌بندی", listOf(
             Btn("انتخاب عکس جدید", 0)
         )),
-        Sub("رنگ", listOf(
+        Sub("استایل", listOf(
             Sld("رنگ‌مایه (Hue)", "ph_hue", 0, 360, 180, "°"),
             Sld("اشباع", "ph_sat", 0, 200, 0, "%"),
             Sld("روشنایی", "ph_bri", 0, 200, 0, "%"),
@@ -191,9 +248,9 @@ internal val MODULES: List<EdModule> = listOf(
             Sld("تیرگی پس‌زمینه", "ph_dim", 0, 80, 0, "%")
         )),
         Sub("موقعیت", listOf(
-            Sld("بزرگ‌نمایی", "ph_zoom", 0, 100),
-            Sld("جابه‌جایی افقی", "ph_px", 0, 100),
-            Sld("جابه‌جایی عمودی", "ph_py", 0, 100)
+            Sld("بزرگ‌نمایی", "ph_zoom", 0, 100, 0, "%"),
+            Sld("جابه‌جایی افقی", "ph_px", 0, 100, 0, "%"),
+            Sld("جابه‌جایی عمودی", "ph_py", 0, 100, 0, "%")
         ))
     ))
 )
@@ -295,6 +352,10 @@ internal class IconView(ctx: Context, private val type: Int, private var tint: I
             9 -> {
                 c.drawLine(cx - s * 0.3f, cy, cx + s * 0.3f, cy, p)
                 c.drawLine(cx, cy - s * 0.3f, cx, cy + s * 0.3f, p)
+            }
+            11 -> {
+                c.drawLine(cx - s * 0.28f, cy, cx - s * 0.08f, cy + s * 0.2f, p)
+                c.drawLine(cx - s * 0.08f, cy + s * 0.2f, cx + s * 0.3f, cy - s * 0.2f, p)
             }
             else -> {
                 c.drawLine(cx - s * 0.3f, cy, cx + s * 0.3f, cy, p)
@@ -403,6 +464,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var galleryPage: View
     private lateinit var settingsPage: View
     private lateinit var preview: PreviewView
+    private lateinit var fullPreview: PreviewView
     private lateinit var editorTitle: TextView
     private lateinit var chipsBox: LinearLayout
     private lateinit var tabsBox: LinearLayout
@@ -418,7 +480,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var catsBox: LinearLayout
     private lateinit var gridHolder: LinearLayout
     private val cats = arrayOf("همه", "ساده", "رنگی", "ویژه")
-    private val catLists = arrayOf<List<Int>?>(null, listOf(0, 2, 3, 10), listOf(1, 5, 6, 7), listOf(4, 8, 9))
+    private val catLists = arrayOf<List<Int>?>(null, listOf(0, 2, 3, 10), listOf(1, 5, 6, 7), listOf(4, 8, 9, 11, 12))
 
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) process(uri)
@@ -462,12 +524,18 @@ class MainActivity : ComponentActivity() {
 
         frame.addView(mainView, FrameLayout.LayoutParams(MATCH, MATCH))
         frame.addView(editorRoot, FrameLayout.LayoutParams(MATCH, MATCH))
+        fullPreview = PreviewView(this)
+        fullPreview.visibility = View.GONE
+        fullPreview.setOnClickListener { fullPreview.visibility = View.GONE }
+        frame.addView(fullPreview, FrameLayout.LayoutParams(MATCH, MATCH))
         setContentView(frame)
         showTab(0)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (editorRoot.visibility == View.VISIBLE) {
+                if (fullPreview.visibility == View.VISIBLE) {
+                    fullPreview.visibility = View.GONE
+                } else if (editorRoot.visibility == View.VISIBLE) {
                     closeEditor()
                 } else {
                     isEnabled = false
@@ -492,6 +560,7 @@ class MainActivity : ComponentActivity() {
         }
         e.apply()
         if (this::preview.isInitialized) preview.invalidate()
+        if (this::fullPreview.isInitialized) fullPreview.invalidate()
     }
 
     /** Clears the style settings, then applies template i (if valid). */
@@ -600,6 +669,77 @@ class MainActivity : ComponentActivity() {
         is Clr -> colorView(c)
         is Txt -> textView(c)
         is Btn -> pill(c.label, true) { if (c.id == 0) picker.launch("image/*") }
+        is Prs -> pairView(c)
+        is Grd -> grdView(c)
+    }
+
+    private fun pairView(c: Prs): View {
+        val col = column()
+        col.addView(tv(c.label, 14f, cText), lp(MATCH, WRAP))
+        val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        for (p in PAIRS) {
+            val item = column()
+            item.gravity = Gravity.CENTER_HORIZONTAL
+            item.background = rounded(cChip, 14)
+            item.setPadding(dp(8), dp(8), dp(8), dp(6))
+            val sw = LinearLayout(this)
+            sw.orientation = LinearLayout.HORIZONTAL
+            val a = View(this)
+            a.setBackgroundColor(p.second)
+            val b = View(this)
+            b.setBackgroundColor(p.third)
+            sw.addView(a, LinearLayout.LayoutParams(dp(24), dp(26)))
+            sw.addView(b, LinearLayout.LayoutParams(dp(24), dp(26)))
+            roundClip(sw, dp(8).toFloat())
+            item.addView(sw, lp(WRAP, WRAP))
+            item.addView(tv(p.first, 11f, cMuted, false, Gravity.CENTER), lp(WRAP, WRAP))
+            item.setOnClickListener {
+                put(c.k1, p.second)
+                put(c.k2, p.third)
+                rebuildControls()
+            }
+            val l = lp(WRAP, WRAP)
+            l.rightMargin = dp(8)
+            row.addView(item, l)
+        }
+        val l2 = lp(MATCH, WRAP)
+        l2.topMargin = dp(8)
+        col.addView(hscroll(row), l2)
+        return col
+    }
+
+    private fun grdView(c: Grd): View {
+        val col = column()
+        col.addView(tv(c.label, 14f, cText), lp(MATCH, WRAP))
+        val box = column()
+        for (r in 0..2) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            for (q in 0..2) {
+                val cell = FrameLayout(this)
+                cell.background = rounded(cChip, 12)
+                val dot = View(this)
+                val g = GradientDrawable()
+                g.shape = GradientDrawable.OVAL
+                g.setColor(cMuted)
+                dot.background = g
+                cell.addView(dot, FrameLayout.LayoutParams(dp(8), dp(8), Gravity.CENTER))
+                cell.setOnClickListener {
+                    put(c.kx, c.xs[q])
+                    put(c.ky, c.ys[r])
+                    rebuildControls()
+                }
+                val l = LinearLayout.LayoutParams(0, dp(44), 1f)
+                l.setMargins(dp(3), dp(3), dp(3), dp(3))
+                row.addView(cell, l)
+            }
+            box.addView(row, lp(MATCH, WRAP))
+        }
+        val l2 = lp(MATCH, WRAP)
+        l2.topMargin = dp(6)
+        col.addView(box, l2)
+        return col
     }
 
     private fun toggleView(c: Tgl): View {
@@ -782,15 +922,40 @@ class MainActivity : ComponentActivity() {
         val bar = LinearLayout(this)
         bar.orientation = LinearLayout.HORIZONTAL
         bar.gravity = Gravity.CENTER_VERTICAL
-        bar.setPadding(dp(10), dp(10), dp(12), dp(6))
+        bar.setPadding(dp(10), dp(10), dp(10), dp(6))
         bar.addView(roundButton(8) { closeEditor() }, lp(dp(40), dp(40)))
-        editorTitle = tv("", 16f, cText, true, Gravity.CENTER)
+        editorTitle = tv("استودیو", 17f, cText, true, Gravity.LEFT or Gravity.CENTER_VERTICAL)
+        editorTitle.setPadding(dp(10), 0, 0, 0)
         bar.addView(editorTitle, LinearLayout.LayoutParams(0, WRAP, 1f))
-        bar.addView(pill("اعمال", true) { setWallpaper() }, lp(WRAP, dp(38)))
+
+        val bm = dp(6)
+        val b1 = lp(dp(40), dp(40))
+        b1.leftMargin = bm
+        bar.addView(roundButton(0) { pickTemplate() }, b1)
+        val pv = pill("پیش‌نمایش", false) { fullPreview.visibility = View.VISIBLE }
+        pv.setPadding(dp(12), dp(6), dp(12), dp(6))
+        val b2 = lp(WRAP, dp(40))
+        b2.leftMargin = bm
+        bar.addView(pv, b2)
+        val b3 = lp(dp(40), dp(40))
+        b3.leftMargin = bm
+        bar.addView(roundButton(7) {
+            applyTemplate(gi("tpl"))
+            rebuildControls()
+        }, b3)
+        val ok = roundButton(11) { setWallpaper() }
+        val okBg = GradientDrawable()
+        okBg.shape = GradientDrawable.OVAL
+        okBg.setColor(cAccent)
+        ok.background = okBg
+        (ok.getChildAt(0) as IconView).setTint(cOnAccent)
+        val b4 = lp(dp(40), dp(40))
+        b4.leftMargin = bm
+        bar.addView(ok, b4)
         editorRoot.addView(bar, lp(MATCH, WRAP))
 
         val dm = resources.displayMetrics
-        val ph = (dm.heightPixels * 0.38f).toInt()
+        val ph = (dm.heightPixels * 0.36f).toInt()
         val pw = (ph.toFloat() * dm.widthPixels / dm.heightPixels).toInt()
         preview = PreviewView(this)
         roundClip(preview, dp(22).toFloat())
@@ -803,31 +968,22 @@ class MainActivity : ComponentActivity() {
         val panel = LinearLayout(this)
         panel.orientation = LinearLayout.VERTICAL
         panel.background = roundedTop(cPanel, 26)
-        panel.setPadding(dp(14), dp(14), dp(14), 0)
-
-        val chipRow = LinearLayout(this)
-        chipRow.orientation = LinearLayout.HORIZONTAL
-        chipRow.gravity = Gravity.CENTER_VERTICAL
-        chipsBox = LinearLayout(this)
-        chipsBox.orientation = LinearLayout.HORIZONTAL
-        chipsBox.gravity = Gravity.CENTER_VERTICAL
-        chipsBox.background = rounded(cRow, 26)
-        chipsBox.setPadding(dp(4), dp(4), dp(4), dp(4))
-        chipRow.addView(chipsBox, LinearLayout.LayoutParams(0, WRAP, 1f))
-        val rl = lp(dp(44), dp(44))
-        rl.leftMargin = dp(10)
-        chipRow.addView(roundButton(7) {
-            applyTemplate(gi("tpl"))
-            rebuildControls()
-        }, rl)
-        panel.addView(chipRow, lp(MATCH, WRAP))
+        panel.setPadding(dp(14), dp(4), dp(14), 0)
 
         tabsBox = LinearLayout(this)
         tabsBox.orientation = LinearLayout.HORIZONTAL
-        val tl = lp(MATCH, WRAP)
-        tl.topMargin = dp(10)
-        tl.bottomMargin = dp(6)
-        panel.addView(hscroll(tabsBox), tl)
+        panel.addView(hscroll(tabsBox), lp(MATCH, WRAP))
+        val line = View(this)
+        line.setBackgroundColor(cChip)
+        panel.addView(line, lp(MATCH, 1))
+
+        chipsBox = LinearLayout(this)
+        chipsBox.orientation = LinearLayout.HORIZONTAL
+        chipsBox.gravity = Gravity.CENTER_VERTICAL
+        val cl = lp(MATCH, WRAP)
+        cl.topMargin = dp(10)
+        cl.bottomMargin = dp(8)
+        panel.addView(hscroll(chipsBox), cl)
 
         ctlBox = column()
         ctlBox.setPadding(0, dp(4), 0, dp(24))
@@ -839,9 +995,22 @@ class MainActivity : ComponentActivity() {
         editorRoot.addView(panel, LinearLayout.LayoutParams(MATCH, 0, 1f))
     }
 
+    private fun pickTemplate() {
+        val names = Array<CharSequence>(TEMPLATES.size) { TEMPLATES[it].name }
+        AlertDialog.Builder(this)
+            .setTitle("قالب‌ها")
+            .setItems(names) { _, which ->
+                applyTemplate(which)
+                rebuildControls()
+            }
+            .show()
+    }
+
     private fun openEditor() {
         mainView.visibility = View.GONE
         editorRoot.visibility = View.VISIBLE
+        modIdx = 0
+        subIdx = 0
         selectModule(0)
     }
 
@@ -852,9 +1021,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectModule(i: Int) {
+        val oldName = MODULES[modIdx].subs.getOrNull(subIdx)?.name
         modIdx = i
-        subIdx = 0
-        editorTitle.text = MODULES[i].name
+        val subs = MODULES[i].subs
+        var ni = 0
+        for (k in subs.indices) {
+            if (subs[k].name == oldName) ni = k
+        }
+        subIdx = ni
         rebuildChips()
         rebuildTabs()
         rebuildControls()
@@ -868,16 +1042,16 @@ class MainActivity : ComponentActivity() {
             val item = LinearLayout(this)
             item.orientation = LinearLayout.HORIZONTAL
             item.gravity = Gravity.CENTER
-            if (sel) item.background = rounded(cPill, 22)
-            item.setPadding(dp(if (sel) 14 else 12), dp(8), dp(if (sel) 16 else 12), dp(8))
+            item.background = rounded(if (sel) cPill else cChip, 22)
+            item.setPadding(dp(14), dp(8), dp(16), dp(8))
             item.setOnClickListener { selectModule(i) }
-            item.addView(IconView(this, m.icon, if (sel) cAccent else cMuted), lp(dp(22), dp(22)))
-            if (sel) {
-                val l = lp(WRAP, WRAP)
-                l.leftMargin = dp(6)
-                item.addView(tv(m.name, 13f, cAccent, true, Gravity.CENTER), l)
-            }
-            chipsBox.addView(item, lp(WRAP, WRAP))
+            item.addView(IconView(this, m.icon, if (sel) cAccent else cMuted), lp(dp(20), dp(20)))
+            val l = lp(WRAP, WRAP)
+            l.leftMargin = dp(6)
+            item.addView(tv(m.name, 13f, if (sel) cAccent else cMuted, sel, Gravity.CENTER), l)
+            val il = lp(WRAP, WRAP)
+            il.rightMargin = dp(8)
+            chipsBox.addView(item, il)
         }
     }
 
@@ -886,17 +1060,20 @@ class MainActivity : ComponentActivity() {
         val subs = MODULES[modIdx].subs
         for (i in subs.indices) {
             val sel = i == subIdx
-            val t = tv(subs[i].name, 13f, if (sel) cAccent else cMuted, sel, Gravity.CENTER)
-            t.setPadding(dp(14), dp(8), dp(14), dp(8))
-            if (sel) t.background = rounded(cPill, 18)
-            t.setOnClickListener {
+            val item = column()
+            item.gravity = Gravity.CENTER_HORIZONTAL
+            val t = tv(subs[i].name, 14f, if (sel) cAccent else cMuted, sel, Gravity.CENTER)
+            t.setPadding(dp(14), dp(12), dp(14), dp(10))
+            item.addView(t, lp(WRAP, WRAP))
+            val u = View(this)
+            u.setBackgroundColor(if (sel) cAccent else 0)
+            item.addView(u, lp(MATCH, dp(3)))
+            item.setOnClickListener {
                 subIdx = i
                 rebuildTabs()
                 rebuildControls()
             }
-            val l = lp(WRAP, WRAP)
-            l.rightMargin = dp(6)
-            tabsBox.addView(t, l)
+            tabsBox.addView(item, lp(WRAP, WRAP))
         }
     }
 
