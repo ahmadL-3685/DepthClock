@@ -11,6 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Decode app icon
+        run: |
+          mkdir -p app/src/main/res/drawable-nodpi
+          base64 -d app/icon.b64 > app/src/main/res/drawable-nodpi/ic_launcher_art.jpg
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
