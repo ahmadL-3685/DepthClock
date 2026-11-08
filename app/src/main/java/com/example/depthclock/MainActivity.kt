@@ -58,6 +58,47 @@ import kotlin.math.sin
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 
+// ---------------------------------------------------------------- app themes
+
+internal class AppTheme(
+    val name: String,
+    val light: Boolean,
+    val bg: Int, val nav: Int, val card: Int, val panel: Int, val row: Int, val chip: Int,
+    val pill: Int, val text: Int, val muted: Int, val accent: Int, val onAccent: Int,
+    val b1: Int, val b2: Int
+)
+
+internal val THEMES: List<AppTheme> = listOf(
+    AppTheme("مشکی و زرد", false,
+        0xFF000000.toInt(), 0xFF161616.toInt(), 0xFF141414.toInt(), 0xFF121212.toInt(), 0xFF1C1C1C.toInt(), 0xFF2A2A2A.toInt(),
+        0xFF3D3600.toInt(), 0xFFFFFFFF.toInt(), 0xFF8A8A8A.toInt(), 0xFFFFD60A.toInt(), 0xFF000000.toInt(),
+        0xFF3D3600.toInt(), 0xFF141414.toInt()),
+    AppTheme("نیمه‌شب", false,
+        0xFF0D1017.toInt(), 0xFF141824.toInt(), 0xFF171B25.toInt(), 0xFF1A1E27.toInt(), 0xFF151922.toInt(), 0xFF262A33.toInt(),
+        0xFF2B3556.toInt(), 0xFFF1F3F8.toInt(), 0xFF8D94A6.toInt(), 0xFFB7C3FF.toInt(), 0xFF141B3A.toInt(),
+        0xFF3A4A8A.toInt(), 0xFF1B2140.toInt()),
+    AppTheme("بنفش", false,
+        0xFF120E1F.toInt(), 0xFF191330.toInt(), 0xFF1E1838.toInt(), 0xFF221B40.toInt(), 0xFF191330.toInt(), 0xFF2E2552.toInt(),
+        0xFF4A3A8C.toInt(), 0xFFF4F1FF.toInt(), 0xFF9C94BF.toInt(), 0xFFC9B8FF.toInt(), 0xFF1E1442.toInt(),
+        0xFF5B3FC2.toInt(), 0xFF1E1442.toInt()),
+    AppTheme("زمردی", false,
+        0xFF0B1512.toInt(), 0xFF101E19.toInt(), 0xFF132620.toInt(), 0xFF16291F.toInt(), 0xFF0F1D18.toInt(), 0xFF1F3A30.toInt(),
+        0xFF1F5A44.toInt(), 0xFFEFFAF5.toInt(), 0xFF86A89A.toInt(), 0xFF7CFFB2.toInt(), 0xFF06281A.toInt(),
+        0xFF1F7A58.toInt(), 0xFF0F2E24.toInt()),
+    AppTheme("غروب", false,
+        0xFF1A0F12.toInt(), 0xFF24141A.toInt(), 0xFF2C1A21.toInt(), 0xFF301C24.toInt(), 0xFF24141A.toInt(), 0xFF43262F.toInt(),
+        0xFF7A3B4A.toInt(), 0xFFFFF1F0.toInt(), 0xFFB89098.toInt(), 0xFFFFB4A2.toInt(), 0xFF3A1218.toInt(),
+        0xFFB04A63.toInt(), 0xFF3A1A24.toInt()),
+    AppTheme("آمولد", false,
+        0xFF000000.toInt(), 0xFF0A0A0A.toInt(), 0xFF121212.toInt(), 0xFF161616.toInt(), 0xFF0E0E0E.toInt(), 0xFF242424.toInt(),
+        0xFF333333.toInt(), 0xFFFFFFFF.toInt(), 0xFF8A8A8A.toInt(), 0xFFFFFFFF.toInt(), 0xFF000000.toInt(),
+        0xFF3A3A3A.toInt(), 0xFF111111.toInt()),
+    AppTheme("روشن", true,
+        0xFFF4F6FB.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFFFFFFF.toInt(), 0xFFF1F3FA.toInt(), 0xFFE3E7F2.toInt(),
+        0xFFD6DEFF.toInt(), 0xFF1A1F36.toInt(), 0xFF6B7390.toInt(), 0xFF3D4FD6.toInt(), 0xFFFFFFFF.toInt(),
+        0xFFD6DEFF.toInt(), 0xFFEADFFF.toInt())
+)
+
 // ---------------------------------------------------------------- editor model
 
 internal sealed class Ctl(val label: String)
@@ -267,7 +308,9 @@ internal class TemplateCard(
     ctx: Context,
     val idx: Int,
     private val title: String,
-    private val prefs: SharedPreferences
+    private val prefs: SharedPreferences,
+    accent: Int,
+    onAccent: Int
 ) : View(ctx) {
     private val renderer = DepthRenderer(ctx.applicationContext)
     private val scrim = Paint()
@@ -275,9 +318,9 @@ internal class TemplateCard(
         color = Color.WHITE
         typeface = Typeface.DEFAULT_BOLD
     }
-    private val badge = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFB7C3FF.toInt() }
+    private val badge = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent }
     private val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFF141B3A.toInt()
+        color = onAccent
         style = Paint.Style.STROKE
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
@@ -308,9 +351,11 @@ internal class TemplateCard(
         val w = width.toFloat()
         val h = height.toFloat()
         renderer.draw(c, width, height, 0f, 0f, cfg())
-        c.drawRect(0f, 0f, w, h, scrim)
-        namePaint.textSize = w * 0.085f
-        c.drawText(title, w * 0.07f, h - w * 0.07f, namePaint)
+        if (idx < 0) {
+            c.drawRect(0f, 0f, w, h, scrim)
+            namePaint.textSize = w * 0.085f
+            c.drawText(title, w * 0.07f, h - w * 0.07f, namePaint)
+        }
         if (prefs.getInt("tpl", -1) == idx) {
             val r = w * 0.065f
             val bx = w - r * 1.6f
@@ -327,17 +372,20 @@ internal class TemplateCard(
 
 class MainActivity : ComponentActivity() {
 
-    private val cBg = 0xFF0D1017.toInt()
-    private val cNav = 0xFF141824.toInt()
-    private val cCard = 0xFF171B25.toInt()
-    private val cPanel = 0xFF1A1E27.toInt()
-    private val cRow = 0xFF151922.toInt()
-    private val cChip = 0xFF262A33.toInt()
-    private val cPill = 0xFF2B3556.toInt()
-    private val cText = 0xFFF1F3F8.toInt()
-    private val cMuted = 0xFF8D94A6.toInt()
-    private val cAccent = 0xFFB7C3FF.toInt()
-    private val cOnAccent = 0xFF141B3A.toInt()
+    private val th: AppTheme by lazy {
+        THEMES[getSharedPreferences(PREFS, MODE_PRIVATE).getInt("theme", 0).coerceIn(0, THEMES.size - 1)]
+    }
+    private val cBg: Int get() = th.bg
+    private val cNav: Int get() = th.nav
+    private val cCard: Int get() = th.card
+    private val cPanel: Int get() = th.panel
+    private val cRow: Int get() = th.row
+    private val cChip: Int get() = th.chip
+    private val cPill: Int get() = th.pill
+    private val cText: Int get() = th.text
+    private val cMuted: Int get() = th.muted
+    private val cAccent: Int get() = th.accent
+    private val cOnAccent: Int get() = th.onAccent
 
     private val palette = intArrayOf(
         Color.WHITE, Color.BLACK,
@@ -366,6 +414,11 @@ class MainActivity : ComponentActivity() {
     private val navLabels = ArrayList<TextView>()
     private var modIdx = 0
     private var subIdx = 0
+    private var catIdx = 0
+    private lateinit var catsBox: LinearLayout
+    private lateinit var gridHolder: LinearLayout
+    private val cats = arrayOf("همه", "ساده", "رنگی", "ویژه")
+    private val catLists = arrayOf<List<Int>?>(null, listOf(0, 2, 3, 10), listOf(1, 5, 6, 7), listOf(4, 8, 9))
 
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) process(uri)
@@ -374,7 +427,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = cBg
-        window.navigationBarColor = cNav
+        window.navigationBarColor = cBg
+        if (th.light) {
+            window.decorView.systemUiVisibility =
+                View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        }
 
         val frame = FrameLayout(this)
         frame.setBackgroundColor(cBg)
@@ -383,8 +440,12 @@ class MainActivity : ComponentActivity() {
         mainView.orientation = LinearLayout.VERTICAL
         mainView.setBackgroundColor(cBg)
 
-        val header = tv("DepthClock", 20f, cText, true, Gravity.LEFT or Gravity.CENTER_VERTICAL)
-        header.setPadding(dp(18), dp(14), dp(18), dp(6))
+        val header = LinearLayout(this)
+        header.orientation = LinearLayout.HORIZONTAL
+        header.gravity = Gravity.CENTER_VERTICAL
+        header.setPadding(dp(20), dp(14), dp(16), dp(6))
+        header.addView(tv("DepthClock", 28f, cText, true, Gravity.LEFT or Gravity.CENTER_VERTICAL), LinearLayout.LayoutParams(0, WRAP, 1f))
+        header.addView(pill("انتخاب عکس", true) { picker.launch("image/*") }, lp(WRAP, dp(40)))
         mainView.addView(header, lp(MATCH, WRAP))
 
         pagesBox = FrameLayout(this)
@@ -859,43 +920,67 @@ class MainActivity : ComponentActivity() {
         val sc = ScrollView(this)
         sc.isVerticalScrollBarEnabled = false
         val col = column()
-        col.setPadding(dp(14), dp(8), dp(14), dp(16))
+        col.setPadding(dp(16), 0, dp(16), dp(24))
 
-        val banner = column()
-        val bg = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF2B3556.toInt(), 0xFF1B2140.toInt()))
-        bg.cornerRadius = dp(22).toFloat()
-        banner.background = bg
-        banner.setPadding(dp(18), dp(16), dp(18), dp(16))
-        banner.addView(tv("ساعت پشت سوژه", 18f, cText, true), lp(MATCH, WRAP))
-        banner.addView(tv("یک عکس انتخاب کن، قالب را برگزین و شخصی‌سازی کن.", 13f, cMuted), lp(MATCH, WRAP))
-        val bl = lp(WRAP, dp(40))
-        bl.topMargin = dp(12)
-        bl.gravity = Gravity.RIGHT
-        banner.addView(pill("انتخاب عکس", true) { picker.launch("image/*") }, bl)
-        col.addView(banner, lp(MATCH, WRAP))
+        catsBox = LinearLayout(this)
+        catsBox.orientation = LinearLayout.HORIZONTAL
+        col.addView(catsBox, lp(MATCH, WRAP))
+        val line = View(this)
+        line.setBackgroundColor(cChip)
+        col.addView(line, lp(MATCH, 1))
 
         status = tv("یک عکس انتخاب کنید (بهتر است عکس یک آدم باشد).", 13f, cMuted)
-        status.setPadding(dp(4), dp(12), dp(4), dp(10))
+        status.setPadding(dp(4), dp(14), dp(4), dp(12))
         col.addView(status, lp(MATCH, WRAP))
 
-        col.addView(buildGrid(), lp(MATCH, WRAP))
+        gridHolder = column()
+        col.addView(gridHolder, lp(MATCH, WRAP))
 
-        val wl = lp(MATCH, dp(48))
-        wl.topMargin = dp(6)
+        val wl = lp(MATCH, dp(50))
+        wl.topMargin = dp(8)
         col.addView(pill("تنظیم به‌عنوان والپیپر", true) { setWallpaper() }, wl)
 
+        rebuildCats()
+        fillGrid()
         sc.addView(col)
         return sc
     }
 
-    private fun buildGrid(): View {
-        val grid = column()
+    private fun rebuildCats() {
+        catsBox.removeAllViews()
+        for (i in cats.indices) {
+            val sel = i == catIdx
+            val item = column()
+            item.gravity = Gravity.CENTER_HORIZONTAL
+            val t = tv(cats[i], 15f, if (sel) cAccent else cMuted, sel, Gravity.CENTER)
+            t.setPadding(0, dp(12), 0, dp(10))
+            item.addView(t, lp(WRAP, WRAP))
+            val u = View(this)
+            u.setBackgroundColor(if (sel) cAccent else 0)
+            item.addView(u, lp(MATCH, dp(3)))
+            item.setOnClickListener {
+                catIdx = i
+                rebuildCats()
+                fillGrid()
+            }
+            catsBox.addView(item, LinearLayout.LayoutParams(0, WRAP, 1f))
+        }
+    }
+
+    private fun fillGrid() {
+        gridHolder.removeAllViews()
+        cards.clear()
         val dm = resources.displayMetrics
-        val cw = (dm.widthPixels - dp(14) * 2 - dp(10)) / 2
-        val ch = (cw * 1.55f).toInt()
+        val cw = (dm.widthPixels - dp(16) * 2 - dp(12)) / 2
+        val ch = (cw * dm.heightPixels.toFloat() / dm.widthPixels).toInt()
         val items = ArrayList<Int>()
-        items.add(-1)
-        for (i in TEMPLATES.indices) items.add(i)
+        val sel = catLists[catIdx]
+        if (sel == null) {
+            items.add(-1)
+            for (i in TEMPLATES.indices) items.add(i)
+        } else {
+            for (i in sel) items.add(i)
+        }
         var i = 0
         while (i < items.size) {
             val row = LinearLayout(this)
@@ -904,8 +989,8 @@ class MainActivity : ComponentActivity() {
                 val k = i + j
                 if (k < items.size) {
                     val idx = items[k]
-                    val card = TemplateCard(this, idx, if (idx < 0) "طرح من" else TEMPLATES[idx].name, prefs)
-                    roundClip(card, dp(20).toFloat())
+                    val card = TemplateCard(this, idx, if (idx < 0) "طرح من" else TEMPLATES[idx].name, prefs, cAccent, cOnAccent)
+                    roundClip(card, dp(28).toFloat())
                     card.setOnClickListener {
                         if (idx >= 0) applyTemplate(idx) else put("tpl", -1)
                         refreshCards()
@@ -913,16 +998,15 @@ class MainActivity : ComponentActivity() {
                     }
                     cards.add(card)
                     val l = lp(cw, ch)
-                    if (j == 0) l.rightMargin = dp(10)
+                    if (j == 0) l.rightMargin = dp(12)
                     row.addView(card, l)
                 }
             }
             val rl = lp(MATCH, WRAP)
-            rl.bottomMargin = dp(10)
-            grid.addView(row, rl)
+            rl.bottomMargin = dp(12)
+            gridHolder.addView(row, rl)
             i += 2
         }
-        return grid
     }
 
     private fun buildSettingsPage(): View {
@@ -951,6 +1035,38 @@ class MainActivity : ComponentActivity() {
         c1.addView(tv("اگر خاموش باشد، والپیپر ثابت است و حس سه‌بعدی فقط از لایه‌بندی می‌آید. روشن بودنش باتری بیشتری مصرف می‌کند.", 12f, cMuted), lp(MATCH, WRAP))
         col.addView(c1, lp(MATCH, WRAP))
 
+        val cT = column()
+        cT.background = rounded(cCard, 18)
+        cT.setPadding(dp(16), dp(14), dp(16), dp(14))
+        cT.addView(tv("تم برنامه", 15f, cText, true), lp(MATCH, WRAP))
+        cT.addView(tv("رنگ و ظاهر کل برنامه را انتخاب کن.", 12f, cMuted), lp(MATCH, WRAP))
+        val themeRow = LinearLayout(this)
+        themeRow.orientation = LinearLayout.HORIZONTAL
+        val curTheme = prefs.getInt("theme", 0).coerceIn(0, THEMES.size - 1)
+        for (i in THEMES.indices) {
+            val t = THEMES[i]
+            val item = column()
+            item.gravity = Gravity.CENTER_HORIZONTAL
+            val dot = View(this)
+            val g = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(t.bg, t.accent))
+            g.shape = GradientDrawable.OVAL
+            g.setStroke(dp(if (i == curTheme) 3 else 1), if (i == curTheme) cAccent else cChip)
+            dot.background = g
+            item.addView(dot, lp(dp(46), dp(46)))
+            item.addView(tv(t.name, 11f, if (i == curTheme) cAccent else cMuted, i == curTheme, Gravity.CENTER), lp(WRAP, WRAP))
+            item.setOnClickListener {
+                prefs.edit().putInt("theme", i).apply()
+                recreate()
+            }
+            val il = lp(WRAP, WRAP)
+            il.rightMargin = dp(14)
+            themeRow.addView(item, il)
+        }
+        val tl = lp(MATCH, WRAP)
+        tl.topMargin = dp(12)
+        cT.addView(hscroll(themeRow), tl)
+        col.addView(cT, lp(MATCH, WRAP))
+
         val c2 = column()
         c2.background = rounded(cCard, 18)
         c2.setPadding(dp(16), dp(14), dp(16), dp(14))
@@ -960,7 +1076,8 @@ class MainActivity : ComponentActivity() {
         rl.topMargin = dp(10)
         rl.gravity = Gravity.RIGHT
         c2.addView(pill("بازنشانی", false) {
-            prefs.edit().clear().apply()
+            val keepTheme = prefs.getInt("theme", 0)
+            prefs.edit().clear().putInt("theme", keepTheme).apply()
             refreshCards()
             say("همه تنظیمات بازنشانی شد")
         }, rl)
@@ -982,29 +1099,26 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildNav(): View {
+        val wrap = FrameLayout(this)
+        wrap.setBackgroundColor(cBg)
+        wrap.setPadding(dp(40), dp(8), dp(40), dp(16))
         val bar = LinearLayout(this)
         bar.orientation = LinearLayout.HORIZONTAL
-        bar.setBackgroundColor(cNav)
-        bar.setPadding(dp(8), dp(8), dp(8), dp(10))
+        bar.gravity = Gravity.CENTER
+        bar.background = rounded(cNav, 34)
+        bar.setPadding(dp(8), dp(8), dp(8), dp(8))
         val icons = intArrayOf(0, 2)
-        val names = arrayOf("قالب‌ها", "تنظیمات")
         for (i in 0..1) {
-            val item = LinearLayout(this)
-            item.orientation = LinearLayout.VERTICAL
-            item.gravity = Gravity.CENTER_HORIZONTAL
             val pillBox = FrameLayout(this)
             val icon = IconView(this, icons[i], cMuted)
-            pillBox.addView(icon, FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER))
-            item.addView(pillBox, lp(dp(60), dp(32)))
-            val label = tv(names[i], 12f, cMuted, false, Gravity.CENTER)
-            item.addView(label, lp(WRAP, WRAP))
-            item.setOnClickListener { showTab(i) }
+            pillBox.addView(icon, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
+            pillBox.setOnClickListener { showTab(i) }
             navPills.add(pillBox)
             navIcons.add(icon)
-            navLabels.add(label)
-            bar.addView(item, LinearLayout.LayoutParams(0, WRAP, 1f))
+            bar.addView(pillBox, LinearLayout.LayoutParams(0, dp(48), 1f))
         }
-        return bar
+        wrap.addView(bar, FrameLayout.LayoutParams(MATCH, WRAP))
+        return wrap
     }
 
     private fun showTab(i: Int) {
@@ -1012,9 +1126,8 @@ class MainActivity : ComponentActivity() {
         settingsPage.visibility = if (i == 1) View.VISIBLE else View.GONE
         for (k in navPills.indices) {
             val sel = k == i
-            navPills[k].background = if (sel) rounded(cPill, 16) else null
-            navIcons[k].setTint(if (sel) cAccent else cMuted)
-            navLabels[k].setTextColor(if (sel) cAccent else cMuted)
+            navPills[k].background = if (sel) rounded(cAccent, 24) else null
+            navIcons[k].setTint(if (sel) cOnAccent else cMuted)
         }
     }
 
