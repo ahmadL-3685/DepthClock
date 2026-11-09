@@ -27,5 +27,8 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-ktx:1.9.3")
+    // Bundled on-device person segmentation (no Google Play services download needed)
     implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
+    // General subject segmentation (characters, animals, objects); model is downloaded by Google Play services
+    implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
 }
