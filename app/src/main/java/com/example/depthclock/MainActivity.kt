@@ -48,6 +48,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.Segmentation
 import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.cos
@@ -1334,7 +1336,36 @@ class MainActivity : ComponentActivity() {
         }.start()
     }
 
+    /** First try the general "subject" model (people, animals, characters, objects), then fall back to people-only. */
     private fun segment(bmp: Bitmap) {
+        status.text = "در حال جداسازی سوژه... (بار اول مدل دانلود می‌شود و اینترنت لازم است)"
+        val sOpts = SubjectSegmenterOptions.Builder()
+            .enableForegroundConfidenceMask()
+            .build()
+        SubjectSegmentation.getClient(sOpts)
+            .process(InputImage.fromBitmap(bmp, 0))
+            .addOnSuccessListener { res ->
+                val fm = res.foregroundConfidenceMask
+                val n = bmp.width * bmp.height
+                if (fm != null && fm.remaining() >= n) {
+                    fm.rewind()
+                    val conf = FloatArray(n)
+                    fm.get(conf, 0, n)
+                    var hit = 0
+                    for (v in conf) if (v > 0.5f) hit++
+                    if (hit > n / 100) {
+                        Thread { save(bmp, bmp.width, bmp.height, conf) }.start()
+                    } else {
+                        segmentPerson(bmp)
+                    }
+                } else {
+                    segmentPerson(bmp)
+                }
+            }
+            .addOnFailureListener { segmentPerson(bmp) }
+    }
+
+    private fun segmentPerson(bmp: Bitmap) {
         val opts = SelfieSegmenterOptions.Builder()
             .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
             .enableRawSizeMask()
