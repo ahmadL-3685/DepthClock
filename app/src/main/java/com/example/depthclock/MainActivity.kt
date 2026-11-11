@@ -9,6 +9,7 @@ import android.content.SharedPreferences
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
@@ -30,6 +31,7 @@ import android.text.InputType
 import android.text.TextWatcher
 import android.util.TypedValue
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
@@ -240,7 +242,8 @@ internal val MODULES: List<EdModule> = listOf(
     )),
     EdModule("عکس", 6, listOf(
         Sub("قالب‌بندی", listOf(
-            Btn("انتخاب عکس جدید", 0)
+            Btn("انتخاب عکس جدید", 0),
+            Btn("اصلاح دستی برش سوژه", 1)
         )),
         Sub("استایل", listOf(
             Sld("رنگ‌مایه (Hue)", "ph_hue", 0, 360, 180, "°"),
@@ -366,6 +369,121 @@ internal class IconView(ctx: Context, private val type: Int, private var tint: I
     }
 }
 
+/** Touch-up screen: paint to erase parts of the cut-out or bring back parts that were removed by mistake. */
+internal class MaskEditView(ctx: Context, private val bg: Bitmap, val fg: Bitmap) : View(ctx) {
+    var erase = true
+    var brush = 40f
+    private val fgCanvas = Canvas(fg)
+    private val undoStack = ArrayList<Bitmap>()
+    private val m = Matrix()
+    private val inv = Matrix()
+    private val pts = FloatArray(2)
+    private var lx = 0f
+    private var ly = 0f
+    private var vx = 0f
+    private var vy = 0f
+    private var scaleNow = 1f
+    private var touching = false
+    private val bgPaint = Paint(Paint.FILTER_BITMAP_FLAG).apply { alpha = 70 }
+    private val fgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val back = Paint().apply { color = 0xFF101010.toInt() }
+    private val cursor = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        color = Color.WHITE
+        strokeWidth = 3f
+    }
+    private val clearMode = PorterDuffXfermode(PorterDuff.Mode.CLEAR)
+    private val strokeErase = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        xfermode = clearMode
+    }
+    private val fillErase = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        xfermode = clearMode
+    }
+    private val strokeBack = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        shader = BitmapShader(bg, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+    }
+    private val fillBack = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+        shader = BitmapShader(bg, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
+    }
+
+    private fun fit() {
+        val s = min(width.toFloat() / bg.width, height.toFloat() / bg.height)
+        scaleNow = s
+        m.reset()
+        m.postScale(s, s)
+        m.postTranslate((width - bg.width * s) / 2f, (height - bg.height * s) / 2f)
+        m.invert(inv)
+    }
+
+    override fun onDraw(c: Canvas) {
+        fit()
+        c.drawRect(0f, 0f, width.toFloat(), height.toFloat(), back)
+        c.drawBitmap(bg, m, bgPaint)
+        c.drawBitmap(fg, m, fgPaint)
+        if (touching) c.drawCircle(vx, vy, brush * scaleNow / 2f, cursor)
+    }
+
+    private fun dot(x: Float, y: Float) {
+        fgCanvas.drawCircle(x, y, brush / 2f, if (erase) fillErase else fillBack)
+    }
+
+    private fun line(x0: Float, y0: Float, x1: Float, y1: Float) {
+        val p = if (erase) strokeErase else strokeBack
+        p.strokeWidth = brush
+        fgCanvas.drawLine(x0, y0, x1, y1, p)
+    }
+
+    private fun pushUndo() {
+        undoStack.add(fg.copy(Bitmap.Config.ARGB_8888, false))
+        if (undoStack.size > 6) undoStack.removeAt(0).recycle()
+    }
+
+    fun undo() {
+        if (undoStack.isEmpty()) return
+        val b = undoStack.removeAt(undoStack.size - 1)
+        fgCanvas.drawColor(0, PorterDuff.Mode.CLEAR)
+        fgCanvas.drawBitmap(b, 0f, 0f, null)
+        b.recycle()
+        invalidate()
+    }
+
+    override fun onTouchEvent(e: MotionEvent): Boolean {
+        fit()
+        pts[0] = e.x
+        pts[1] = e.y
+        inv.mapPoints(pts)
+        val px = pts[0]
+        val py = pts[1]
+        vx = e.x
+        vy = e.y
+        when (e.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                pushUndo()
+                lx = px
+                ly = py
+                touching = true
+                dot(px, py)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                line(lx, ly, px, py)
+                lx = px
+                ly = py
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> touching = false
+        }
+        invalidate()
+        return true
+    }
+}
+
 /** One template card. idx -1 = "my design" (the current settings). */
 internal class TemplateCard(
     ctx: Context,
@@ -467,6 +585,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var settingsPage: View
     private lateinit var preview: PreviewView
     private lateinit var fullPreview: PreviewView
+    private lateinit var rootFrame: FrameLayout
+    private var maskOverlay: View? = null
+    private var maskView: MaskEditView? = null
     private lateinit var editorTitle: TextView
     private lateinit var chipsBox: LinearLayout
     private lateinit var tabsBox: LinearLayout
@@ -481,8 +602,8 @@ class MainActivity : ComponentActivity() {
     private var catIdx = 0
     private lateinit var catsBox: LinearLayout
     private lateinit var gridHolder: LinearLayout
-    private val cats = arrayOf("همه", "ساده", "رنگی", "ویژه")
-    private val catLists = arrayOf<List<Int>?>(null, listOf(0, 2, 3, 10), listOf(1, 5, 6, 7), listOf(4, 8, 9, 11, 12))
+    private val cats = arrayOf("همه", "ساده", "رنگی", "ویژه", "انیمه")
+    private val catLists = arrayOf<List<Int>?>(null, listOf(0, 2, 3, 10), listOf(1, 5, 6, 7), listOf(4, 8, 9, 11, 12), listOf(13, 14, 15, 16, 17))
 
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) process(uri)
@@ -498,6 +619,7 @@ class MainActivity : ComponentActivity() {
         }
 
         val frame = FrameLayout(this)
+        rootFrame = frame
         frame.setBackgroundColor(cBg)
 
         mainView = LinearLayout(this)
@@ -535,7 +657,9 @@ class MainActivity : ComponentActivity() {
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (fullPreview.visibility == View.VISIBLE) {
+                if (maskOverlay != null) {
+                    closeMask(false)
+                } else if (fullPreview.visibility == View.VISIBLE) {
                     fullPreview.visibility = View.GONE
                 } else if (editorRoot.visibility == View.VISIBLE) {
                     closeEditor()
@@ -670,7 +794,7 @@ class MainActivity : ComponentActivity() {
         is Fnt -> chipsView(c.label, c.key, FONT_NAMES, true)
         is Clr -> colorView(c)
         is Txt -> textView(c)
-        is Btn -> pill(c.label, true) { if (c.id == 0) picker.launch("image/*") }
+        is Btn -> pill(c.label, true) { if (c.id == 0) picker.launch("image/*") else openMaskEditor() }
         is Prs -> pairView(c)
         is Grd -> grdView(c)
     }
@@ -1311,6 +1435,135 @@ class MainActivity : ComponentActivity() {
     }
 
     // ------------------------------------------------------------ wallpaper + photo processing
+
+    // ------------------------------------------------------------ manual cut-out touch-up
+
+    private fun openMaskEditor() {
+        if (maskOverlay != null) return
+        val bf = File(filesDir, BG_FILE)
+        val ff = File(filesDir, FG_FILE)
+        if (!bf.exists() || !ff.exists()) {
+            say("اول یک عکس انتخاب کن")
+            return
+        }
+        val o = BitmapFactory.Options()
+        o.inMutable = true
+        val bg = BitmapFactory.decodeFile(bf.path)
+        val fg = BitmapFactory.decodeFile(ff.path, o)
+        if (bg == null || fg == null) {
+            say("خواندن عکس ممکن نشد")
+            return
+        }
+        val mv = MaskEditView(this, bg, fg)
+        maskView = mv
+
+        val root = LinearLayout(this)
+        root.orientation = LinearLayout.VERTICAL
+        root.setBackgroundColor(cBg)
+
+        val bar = LinearLayout(this)
+        bar.orientation = LinearLayout.HORIZONTAL
+        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.setPadding(dp(10), dp(10), dp(12), dp(8))
+        bar.addView(roundButton(8) { closeMask(false) }, lp(dp(40), dp(40)))
+        val title = tv("اصلاح دستی برش", 17f, cText, true, Gravity.LEFT or Gravity.CENTER_VERTICAL)
+        title.setPadding(dp(12), 0, 0, 0)
+        bar.addView(title, LinearLayout.LayoutParams(0, WRAP, 1f))
+        bar.addView(pill("ذخیره", true) { closeMask(true) }, lp(WRAP, dp(40)))
+        root.addView(bar, lp(MATCH, WRAP))
+
+        root.addView(mv, LinearLayout.LayoutParams(MATCH, 0, 1f))
+
+        val panel = column()
+        panel.background = roundedTop(cPanel, 26)
+        panel.setPadding(dp(16), dp(14), dp(16), dp(16))
+
+        val modes = LinearLayout(this)
+        modes.orientation = LinearLayout.HORIZONTAL
+        val eraseBtn = pill("پاک کردن", true) {}
+        val backBtn = pill("برگرداندن", false) {}
+        val undoBtn = pill("واگرد", false) { mv.undo() }
+        fun refreshModes() {
+            eraseBtn.background = rounded(if (mv.erase) cAccent else cChip, 24)
+            eraseBtn.setTextColor(if (mv.erase) cOnAccent else cText)
+            backBtn.background = rounded(if (mv.erase) cChip else cAccent, 24)
+            backBtn.setTextColor(if (mv.erase) cText else cOnAccent)
+        }
+        eraseBtn.setOnClickListener {
+            mv.erase = true
+            refreshModes()
+        }
+        backBtn.setOnClickListener {
+            mv.erase = false
+            refreshModes()
+        }
+        refreshModes()
+        val ml = lp(WRAP, dp(40))
+        ml.rightMargin = dp(8)
+        modes.addView(eraseBtn, ml)
+        val ml2 = lp(WRAP, dp(40))
+        ml2.rightMargin = dp(8)
+        modes.addView(backBtn, ml2)
+        modes.addView(undoBtn, lp(WRAP, dp(40)))
+        panel.addView(modes, lp(MATCH, WRAP))
+
+        val sl = lp(MATCH, WRAP)
+        sl.topMargin = dp(12)
+        panel.addView(tv("اندازه قلم", 14f, cText), sl)
+        val seek = SeekBar(this)
+        seek.max = 194
+        seek.progress = 34
+        seek.progressTintList = ColorStateList.valueOf(cAccent)
+        seek.thumbTintList = ColorStateList.valueOf(cAccent)
+        seek.progressBackgroundTintList = ColorStateList.valueOf(cChip)
+        seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
+                mv.brush = (p + 6).toFloat()
+            }
+
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            override fun onStopTrackingTouch(s: SeekBar?) {}
+        })
+        panel.addView(seek, lp(MATCH, WRAP))
+        panel.addView(
+            tv("با «پاک کردن» قسمت‌های اضافه را پاک کن. با «برگرداندن» قسمت‌هایی که اشتباهی پاک شده‌اند را برگردان. قسمت کم‌رنگ، بخش بریده‌شده است.", 12f, cMuted),
+            lp(MATCH, WRAP)
+        )
+        root.addView(panel, lp(MATCH, WRAP))
+
+        rootFrame.addView(root, FrameLayout.LayoutParams(MATCH, MATCH))
+        maskOverlay = root
+    }
+
+    private fun closeMask(save: Boolean) {
+        val root = maskOverlay ?: return
+        val mv = maskView
+        if (save && mv != null) {
+            say("در حال ذخیره...")
+            val fgBmp = mv.fg
+            Thread {
+                try {
+                    val tmp = File(filesDir, "fg.tmp")
+                    FileOutputStream(tmp).use { fgBmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+                    tmp.renameTo(File(filesDir, FG_FILE))
+                    runOnUiThread {
+                        rootFrame.removeView(root)
+                        maskOverlay = null
+                        maskView = null
+                        refreshCards()
+                        preview.invalidate()
+                        say("ذخیره شد")
+                    }
+                } catch (e: Throwable) {
+                    runOnUiThread { say("خطا در ذخیره: ${e.message}") }
+                }
+            }.start()
+        } else {
+            rootFrame.removeView(root)
+            maskOverlay = null
+            maskView = null
+        }
+    }
 
     private fun setWallpaper() {
         val i = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER).putExtra(
