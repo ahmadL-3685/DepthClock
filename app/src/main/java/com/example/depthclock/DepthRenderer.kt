@@ -170,7 +170,28 @@ val TEMPLATES: List<Template> = listOf(
         "dt_font" to 4, "dt_up" to true),
     tpl("Glass",
         "clk_font" to 9, "clk_layout" to 1, "clk_size" to 80, "clk_style" to 0, "clk_c1" to Color.WHITE,
-        "clk_gl" to true, "clk_glo" to 35, "clk_y" to 30, "dt_font" to 9)
+        "clk_gl" to true, "clk_glo" to 35, "clk_y" to 30, "dt_font" to 9),
+    // ---- قالب‌های مخصوص عکس‌های ارسالی ----
+    tpl("Crimson Hood",
+        "clk_font" to 2, "clk_size" to 88, "clk_style" to 1, "clk_c1" to Color.WHITE, "clk_c2" to 0xFFE53935.toInt(),
+        "clk_lh" to 38, "clk_sh" to true, "clk_shs" to 55, "clk_y" to 30,
+        "dt_font" to 2, "dt_up" to true, "dt_c" to 0xFFFFB3B0.toInt(), "dt_ls" to 50),
+    tpl("Night City",
+        "clk_font" to 2, "clk_size" to 82, "clk_style" to 1, "clk_c1" to 0xFFFF3DDB.toInt(), "clk_c2" to 0xFF00E5FF.toInt(),
+        "clk_ow" to 12, "clk_oc" to 0xFF0A0420.toInt(), "clk_sh" to true, "clk_shs" to 85, "clk_lh" to 40, "clk_y" to 22,
+        "dt_font" to 4, "dt_up" to true, "dt_c" to 0xFF9BF6FF.toInt(), "dt_ls" to 60),
+    tpl("Eclipse",
+        "clk_font" to 8, "clk_layout" to 1, "clk_size" to 75, "clk_style" to 1, "clk_c1" to Color.WHITE, "clk_c2" to 0xFFFF3B30.toInt(),
+        "clk_ls" to 40, "clk_op" to 95, "clk_sh" to true, "clk_shs" to 70, "clk_y" to 20,
+        "dt_font" to 8, "dt_up" to true, "dt_ls" to 90, "dt_c" to 0xFFFF8A80.toInt()),
+    tpl("Noir",
+        "clk_font" to 5, "clk_size" to 92, "clk_style" to 2, "clk_c1" to Color.WHITE, "clk_c2" to 0xFF8A949E.toInt(),
+        "clk_lh" to 35, "clk_op" to 92, "clk_y" to 32, "clk_sh" to true, "clk_shs" to 40,
+        "dt_font" to 2, "dt_up" to true, "dt_ls" to 70, "dt_c" to 0xFFC8CED4.toInt()),
+    tpl("Lagoon",
+        "clk_font" to 9, "clk_layout" to 1, "clk_size" to 82, "clk_style" to 3, "clk_c1" to Color.WHITE, "clk_c2" to 0xFF7FF0FF.toInt(),
+        "clk_gl" to true, "clk_glo" to 25, "clk_sh" to true, "clk_shs" to 35, "clk_y" to 16,
+        "dt_font" to 9, "dt_c" to Color.WHITE, "dt_ls" to 40)
 )
 
 private val FONT_FAMS = arrayOf(
