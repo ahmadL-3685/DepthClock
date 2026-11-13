@@ -16,6 +16,29 @@ jobs:
           mkdir -p app/src/main/res/drawable-nodpi
           base64 -d app/icon.b64 > app/src/main/res/drawable-nodpi/ic_launcher_art.jpg
 
+      - name: Download fonts
+        run: |
+          mkdir -p app/src/main/assets/fonts
+          cd app/src/main/assets/fonts
+          B=https://github.com/google/fonts/raw/main
+          get() { curl -fsSL -o "$2" "$B/$1" || echo "FONT FAILED: $2"; }
+          get ofl/anton/Anton-Regular.ttf Anton-Regular.ttf
+          get ofl/bebasneue/BebasNeue-Regular.ttf BebasNeue-Regular.ttf
+          get ofl/pirataone/PirataOne-Regular.ttf PirataOne-Regular.ttf
+          get ofl/bungee/Bungee-Regular.ttf Bungee-Regular.ttf
+          get ofl/blackopsone/BlackOpsOne-Regular.ttf BlackOpsOne-Regular.ttf
+          get ofl/pressstart2p/PressStart2P-Regular.ttf PressStart2P-Regular.ttf
+          get ofl/dotgothic16/DotGothic16-Regular.ttf DotGothic16-Regular.ttf
+          get apache/permanentmarker/PermanentMarker-Regular.ttf PermanentMarker-Regular.ttf
+          get "ofl/orbitron/Orbitron%5Bwght%5D.ttf" Orbitron.ttf
+          get ofl/italiana/Italiana-Regular.ttf Italiana-Regular.ttf
+          get ofl/monoton/Monoton-Regular.ttf Monoton-Regular.ttf
+          get ofl/rubikdistressed/RubikDistressed-Regular.ttf RubikDistressed-Regular.ttf
+          get ofl/metalmania/MetalMania-Regular.ttf MetalMania-Regular.ttf
+          get ofl/cinzeldecorative/CinzelDecorative-Bold.ttf CinzelDecorative-Bold.ttf
+          find . -size -2k -delete
+          ls -la
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
