@@ -611,6 +611,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        fontAssets = applicationContext.assets
         window.statusBarColor = cBg
         window.navigationBarColor = cBg
         if (th.light) {
