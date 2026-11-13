@@ -31,9 +31,32 @@ const val PREFS = "depth"
 const val KEY_MOTION = "motion"
 const val BG_FILE = "bg.jpg"
 const val FG_FILE = "fg.png"
-const val FONT_COUNT = 11
+const val BASE_FONTS = 11
 
-val FONT_NAMES = listOf("Medium", "Light", "Condensed", "Serif", "Mono", "Black", "Casual", "Script", "Thin", "Regular", "Narrow")
+/** Extra fonts: display name to file name in assets/fonts (downloaded by the build workflow). */
+val EXTRA_FONTS: List<Pair<String, String>> = listOf(
+    "Anton" to "Anton-Regular.ttf",
+    "Bebas" to "BebasNeue-Regular.ttf",
+    "Pirata" to "PirataOne-Regular.ttf",
+    "Bungee" to "Bungee-Regular.ttf",
+    "Stencil" to "BlackOpsOne-Regular.ttf",
+    "Pixel" to "PressStart2P-Regular.ttf",
+    "Dots" to "DotGothic16-Regular.ttf",
+    "Marker" to "PermanentMarker-Regular.ttf",
+    "Orbitron" to "Orbitron.ttf",
+    "Italiana" to "Italiana-Regular.ttf",
+    "Monoton" to "Monoton-Regular.ttf",
+    "Distress" to "RubikDistressed-Regular.ttf",
+    "Metal" to "MetalMania-Regular.ttf",
+    "Cinzel" to "CinzelDecorative-Bold.ttf"
+)
+val FONT_COUNT = BASE_FONTS + EXTRA_FONTS.size
+
+val FONT_NAMES = listOf("Medium", "Light", "Condensed", "Serif", "Mono", "Black", "Casual", "Script", "Thin", "Regular", "Narrow") + EXTRA_FONTS.map { it.first }
+
+/** Set once at start-up so fontFor can read fonts from assets. */
+@Volatile
+var fontAssets: android.content.res.AssetManager? = null
 val DATE_FMTS = arrayOf("EEEE d MMMM", "EEE d MMM", "yyyy/MM/dd", "d MMMM")
 
 /** Default value of every setting. Anything not stored in prefs falls back to this. */
@@ -203,6 +226,20 @@ private val tfCache = HashMap<Int, Typeface>()
 
 /** wt: 0 = font as designed, 1 = semi-bold, 2 = bold. */
 fun fontFor(i: Int, wt: Int = 0, italic: Boolean = false): Typeface {
+    if (i >= BASE_FONTS) {
+        val ek = i.coerceAtMost(FONT_COUNT - 1)
+        val ck = 10000 + ek
+        val hit = tfCache[ck]
+        if (hit != null) return hit
+        val am = fontAssets
+        val tf = try {
+            Typeface.createFromAsset(am, "fonts/" + EXTRA_FONTS[ek - BASE_FONTS].second)
+        } catch (e: Exception) {
+            return Typeface.create("sans-serif-medium", Typeface.BOLD)
+        }
+        tfCache[ck] = tf
+        return tf
+    }
     val k = i.coerceIn(0, FONT_FAMS.size - 1)
     val key = k * 100 + wt * 10 + (if (italic) 1 else 0)
     val cached = tfCache[key]
@@ -265,6 +302,7 @@ object Layers {
  * ox, oy (-1..1) only matter when motion is on.
  */
 class DepthRenderer(private val ctx: Context) {
+    init { fontAssets = ctx.applicationContext.assets }
     private val prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val dimPaint = Paint()
